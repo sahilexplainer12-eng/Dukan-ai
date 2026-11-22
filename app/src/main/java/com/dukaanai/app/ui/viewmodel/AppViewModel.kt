@@ -12,6 +12,9 @@ import com.dukaanai.app.data.local.models.CustomerWithBalance
 import com.dukaanai.app.data.local.models.TransactionWithCustomer
 import com.dukaanai.app.data.repository.LedgerRepository
 import com.dukaanai.app.data.repository.TodaySummary
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -71,13 +74,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Dialog & Interaction UI States
-    var showAddCustomerDialog by androidx.compose.runtime.mutableStateOf(false)
-    var editingCustomer by androidx.compose.runtime.mutableStateOf<Customer?>(null)
-    var customerToDelete by androidx.compose.runtime.mutableStateOf<Customer?>(null)
+    var showAddCustomerDialog by mutableStateOf(false)
+    var editingCustomer by mutableStateOf<Customer?>(null)
+    var customerToDelete by mutableStateOf<Customer?>(null)
 
     // Transaction dialog state: Pair of (Customer, TransactionType)
-    var transactionDialogState by androidx.compose.runtime.mutableStateOf<Pair<Customer, TransactionType>?>(null)
-    var transactionToDelete by androidx.compose.runtime.mutableStateOf<TransactionEntity?>(null)
+    var transactionDialogState by mutableStateOf<Pair<Customer, TransactionType>?>(null)
+    var transactionToDelete by mutableStateOf<TransactionEntity?>(null)
 
     init {
         // Check if store profile exists to determine whether onboarding is required
