@@ -473,7 +473,7 @@ fun EmptyTransactionsCard() {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 32.dp, horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
@@ -543,7 +543,7 @@ fun CustomerAccountsView() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 40.dp, horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
@@ -614,7 +614,7 @@ fun TransactionHistoryView() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 40.dp, horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
