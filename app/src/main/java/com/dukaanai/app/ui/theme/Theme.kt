@@ -11,14 +11,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = KiranaGreenPrimary,
-    onPrimary = SurfaceWhite,
-    primaryContainer = KiranaGreenLight,
-    onPrimaryContainer = KiranaGreenDark,
-    secondary = AccentAmber,
-    onSecondary = SurfaceWhite,
-    background = BackgroundOffWhite,
-    surface = SurfaceWhite,
+    primary = BrandPrimary,
+    onPrimary = SurfaceCard,
+    primaryContainer = BrandAccentBg,
+    onPrimaryContainer = BrandPrimary,
+    secondary = BrandAccent,
+    onSecondary = SurfaceCard,
+    background = BackgroundScreen,
+    surface = SurfaceCard,
     onBackground = TextPrimary,
     onSurface = TextPrimary
 )
@@ -28,16 +28,16 @@ fun DukaanAITheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    // For small store owners, high contrast daylight readability is critical
     val colorScheme = LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window
-            window?.statusBarColor = colorScheme.primary.toArgb()
+            window?.statusBarColor = SurfaceCard.toArgb()
             if (window != null) {
-                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+                // Dark status bar icons on white/light background for modern fintech look
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
             }
         }
     }

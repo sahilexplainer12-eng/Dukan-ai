@@ -2,24 +2,22 @@ package com.dukaanai.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Kirana Brand Colors
-val KiranaGreenPrimary = Color(0xFF0F5A47)
-val KiranaGreenDark = Color(0xFF07382B)
-val KiranaGreenLight = Color(0xFFE8F5E9)
+// Premium Modern Fintech Palette
+val BrandPrimary = Color(0xFF0F172A)      // Deep Slate 900
+val BrandAccent = Color(0xFF0284C7)       // Clean Sky/Fintech Blue
+val BrandAccentBg = Color(0xFFF0F9FF)
 
-// Accent Colors
-val AccentAmber = Color(0xFFF57C00)
-val AccentAmberLight = Color(0xFFFFF3E0)
+// Ledger Status Colors (Credit & Payment)
+val CreditRed = Color(0xFFDC2626)         // Clear ledger red (Credit given)
+val CreditRedBg = Color(0xFFFEF2F2)
+val PaymentGreen = Color(0xFF16A34A)      // Clear ledger green (Payment received)
+val PaymentGreenBg = Color(0xFFF0FDF4)
 
-// Financial / Ledger Colors (Khata Red & Green)
-val UdhaarRed = Color(0xFFC62828)
-val UdhaarRedBg = Color(0xFFFFEBEE)
-val JamaGreen = Color(0xFF2E7D32)
-val JamaGreenBg = Color(0xFFE8F5E9)
-
-// Background & Surface
-val BackgroundOffWhite = Color(0xFFF7F9FA)
-val SurfaceWhite = Color(0xFFFFFFFF)
-val TextPrimary = Color(0xFF1F2937)
-val TextSecondary = Color(0xFF6B7280)
-val BorderLight = Color(0xFFE5E7EB)
+// Neutral Surfaces & Hierarchy
+val BackgroundScreen = Color(0xFFF8FAFC)  // Clean slate 50
+val SurfaceCard = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF0F172A)        // High-contrast slate 900
+val TextSecondary = Color(0xFF475569)      // Readable slate 600
+val TextMuted = Color(0xFF94A3B8)          // Slate 400
+val BorderSubtle = Color(0xFFE2E8F0)       // Slate 200
+val BorderDivider = Color(0xFFF1F5F9)      // Slate 100
