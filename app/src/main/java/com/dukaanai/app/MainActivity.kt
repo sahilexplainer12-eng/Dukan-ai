@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dukaanai.app.ui.screens.HomeScreen
 import com.dukaanai.app.ui.theme.DukaanAITheme
+import com.dukaanai.app.ui.viewmodel.AppViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,7 +21,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    HomeScreen()
+                    val appViewModel: AppViewModel = viewModel()
+                    HomeScreen(viewModel = appViewModel)
                 }
             }
         }

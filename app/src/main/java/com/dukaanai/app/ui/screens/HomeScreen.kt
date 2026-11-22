@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
@@ -26,15 +28,81 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dukaanai.app.data.local.entities.TransactionEntity
+import com.dukaanai.app.data.local.entities.TransactionType
+import com.dukaanai.app.data.local.models.TransactionWithCustomer
+import com.dukaanai.app.ui.components.AddCustomerDialog
+import com.dukaanai.app.ui.components.AddTransactionDialog
+import com.dukaanai.app.ui.components.DeleteConfirmationDialog
+import com.dukaanai.app.ui.components.EditCustomerDialog
+import com.dukaanai.app.ui.components.StoreSettingsDialog
 import com.dukaanai.app.ui.theme.*
+import com.dukaanai.app.ui.viewmodel.AppScreen
+import com.dukaanai.app.ui.viewmodel.AppViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
-    var selectedTab by remember { mutableIntStateOf(0) }
+fun HomeScreen(viewModel: AppViewModel) {
+    val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
+    val storeProfile by viewModel.storeProfile.collectAsStateWithLifecycle()
+    val todaySummary by viewModel.todaySummary.collectAsStateWithLifecycle()
+    val customers by viewModel.filteredCustomers.collectAsStateWithLifecycle()
+    val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+
+    var showStoreSettingsDialog by remember { mutableStateOf(false) }
+
+    // First-Time Launch Onboarding Screen
+    if (currentScreen is AppScreen.Onboarding) {
+        OnboardingScreen(
+            onSetupComplete = { storeName, ownerName, phone, address ->
+                viewModel.completeOnboarding(storeName, ownerName, phone, address)
+            }
+        )
+        return
+    }
+
+    // Customer Detail Screen View
+    if (currentScreen is AppScreen.CustomerDetail) {
+        val customerId = (currentScreen as AppScreen.CustomerDetail).customerId
+        val customer by viewModel.getCustomer(customerId).collectAsStateWithLifecycle(initialValue = null)
+        val customerTransactions by viewModel.getCustomerTransactions(customerId).collectAsStateWithLifecycle(initialValue = emptyList())
+
+        if (customer != null) {
+            CustomerDetailScreen(
+                customer = customer!!,
+                transactions = customerTransactions,
+                onBack = { viewModel.navigateTo(AppScreen.Khata) },
+                onEditCustomer = { viewModel.editingCustomer = it },
+                onDeleteCustomer = { viewModel.customerToDelete = it },
+                onAddCredit = { viewModel.transactionDialogState = it to TransactionType.CREDIT },
+                onAddPayment = { viewModel.transactionDialogState = it to TransactionType.PAYMENT },
+                onDeleteTransaction = { viewModel.transactionToDelete = it }
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = BrandPrimary)
+            }
+        }
+
+        // Render Dialogs
+        RenderDialogs(viewModel = viewModel, storeProfile = storeProfile, showSettings = showStoreSettingsDialog, onDismissSettings = { showStoreSettingsDialog = false })
+        return
+    }
+
+    // Bottom Bar Tab selection
+    val selectedTab = when (currentScreen) {
+        AppScreen.Home -> 0
+        AppScreen.Khata -> 1
+        AppScreen.History -> 2
+        else -> 0
+    }
 
     Scaffold(
         topBar = {
@@ -53,31 +121,41 @@ fun HomeScreen() {
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Store,
-                                contentDescription = "Dukaan AI Logo",
+                                contentDescription = "Store Logo",
                                 tint = SurfaceCard,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Column {
                             Text(
-                                text = "Dukaan AI",
+                                text = storeProfile?.storeName ?: "Dukaan AI",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary,
-                                fontSize = 18.sp
+                                fontSize = 17.sp,
+                                maxLines = 1
                             )
                             Text(
-                                text = "Store Ledger",
+                                text = if (!storeProfile?.ownerName.isNullOrBlank()) "${storeProfile?.ownerName} • Ledger" else "Store Ledger",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary,
-                                fontSize = 12.sp
+                                fontSize = 11.sp,
+                                maxLines = 1
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceCard
-                )
+                actions = {
+                    IconButton(onClick = { showStoreSettingsDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Store Settings",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceCard)
             )
         },
         bottomBar = {
@@ -88,7 +166,7 @@ fun HomeScreen() {
             ) {
                 NavigationBarItem(
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
+                    onClick = { viewModel.navigateTo(AppScreen.Home) },
                     icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                     label = { Text("Home", fontSize = 12.sp) },
                     colors = NavigationBarItemDefaults.colors(
@@ -101,7 +179,7 @@ fun HomeScreen() {
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    onClick = { viewModel.navigateTo(AppScreen.Khata) },
                     icon = { Icon(Icons.Default.Book, contentDescription = "Khata") },
                     label = { Text("Khata", fontSize = 12.sp) },
                     colors = NavigationBarItemDefaults.colors(
@@ -114,7 +192,7 @@ fun HomeScreen() {
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
+                    onClick = { viewModel.navigateTo(AppScreen.History) },
                     icon = { Icon(Icons.Default.History, contentDescription = "History") },
                     label = { Text("History", fontSize = 12.sp) },
                     colors = NavigationBarItemDefaults.colors(
@@ -136,27 +214,125 @@ fun HomeScreen() {
         ) {
             when (selectedTab) {
                 0 -> HomeDashboardView(
-                    onOpenKhata = { selectedTab = 1 },
-                    onOpenHistory = { selectedTab = 2 },
+                    todayCredit = "₹%.2f".format(todaySummary.todayCredit),
+                    todayPayment = "₹%.2f".format(todaySummary.todayPayment),
+                    customerCount = todaySummary.customerCount,
+                    totalRecordCount = allTransactions.size,
+                    recentTransactions = allTransactions.take(5),
+                    onOpenKhata = { viewModel.navigateTo(AppScreen.Khata) },
+                    onOpenHistory = { viewModel.navigateTo(AppScreen.History) },
                     onStartShopMode = {
                         // Reserved for upcoming Shop Mode feature
-                    }
+                    },
+                    onDeleteTransaction = { viewModel.transactionToDelete = it }
                 )
-                1 -> CustomerAccountsView()
-                2 -> TransactionHistoryView()
+                1 -> KhataScreen(
+                    customers = customers,
+                    searchQuery = searchQuery,
+                    onSearchChange = { viewModel.updateSearchQuery(it) },
+                    onAddCustomerClick = { viewModel.showAddCustomerDialog = true },
+                    onCustomerClick = { customerId -> viewModel.navigateTo(AppScreen.CustomerDetail(customerId)) }
+                )
+                2 -> HistoryScreen(
+                    transactions = allTransactions,
+                    onDeleteTransaction = { viewModel.transactionToDelete = it }
+                )
             }
         }
+    }
+
+    // Render Dialogs
+    RenderDialogs(viewModel = viewModel, storeProfile = storeProfile, showSettings = showStoreSettingsDialog, onDismissSettings = { showStoreSettingsDialog = false })
+}
+
+@Composable
+fun RenderDialogs(
+    viewModel: AppViewModel,
+    storeProfile: com.dukaanai.app.data.local.entities.StoreProfile?,
+    showSettings: Boolean,
+    onDismissSettings: () -> Unit
+) {
+    // 1. Add Customer Dialog
+    if (viewModel.showAddCustomerDialog) {
+        AddCustomerDialog(
+            onDismiss = { viewModel.showAddCustomerDialog = false },
+            onConfirm = { name, phone -> viewModel.addCustomer(name, phone) }
+        )
+    }
+
+    // 2. Edit Customer Dialog
+    viewModel.editingCustomer?.let { customer ->
+        EditCustomerDialog(
+            customer = customer,
+            onDismiss = { viewModel.editingCustomer = null },
+            onConfirm = { name, phone -> viewModel.updateCustomer(customer.id, name, phone) }
+        )
+    }
+
+    // 3. Delete Customer Dialog
+    viewModel.customerToDelete?.let { customer ->
+        DeleteConfirmationDialog(
+            title = "Delete Customer",
+            message = "Are you sure you want to delete ${customer.name}? All their transactions will be permanently deleted.",
+            onDismiss = { viewModel.customerToDelete = null },
+            onConfirm = { viewModel.deleteCustomer(customer) }
+        )
+    }
+
+    // 4. Add Transaction Dialog (Credit or Payment)
+    viewModel.transactionDialogState?.let { (customer, type) ->
+        AddTransactionDialog(
+            customer = customer,
+            type = type,
+            onDismiss = { viewModel.transactionDialogState = null },
+            onConfirm = { amount, description ->
+                viewModel.addTransaction(
+                    customerId = customer.id,
+                    type = type,
+                    amount = amount,
+                    description = description
+                )
+            }
+        )
+    }
+
+    // 5. Delete Transaction Dialog
+    viewModel.transactionToDelete?.let { txn ->
+        DeleteConfirmationDialog(
+            title = "Delete Transaction",
+            message = "Are you sure you want to delete this ₹%.2f entry? The customer's balance will be recalculated immediately.".format(txn.amount),
+            onDismiss = { viewModel.transactionToDelete = null },
+            onConfirm = { viewModel.deleteTransaction(txn) }
+        )
+    }
+
+    // 6. Store Settings Dialog
+    if (showSettings) {
+        StoreSettingsDialog(
+            storeProfile = storeProfile,
+            onDismiss = onDismissSettings,
+            onConfirm = { name, owner, phone, addr ->
+                viewModel.updateStoreProfile(name, owner, phone, addr)
+                onDismissSettings()
+            }
+        )
     }
 }
 
 /**
- * Main Home Dashboard: Overview, Shop Mode CTA, Shortcuts, and Recent Transactions
+ * Main Home Dashboard: Real Live Ledger Totals & Recent Transactions
  */
 @Composable
 fun HomeDashboardView(
+    todayCredit: String,
+    todayPayment: String,
+    customerCount: Int,
+    totalRecordCount: Int,
+    recentTransactions: List<TransactionWithCustomer>,
     onOpenKhata: () -> Unit,
     onOpenHistory: () -> Unit,
-    onStartShopMode: () -> Unit
+    onStartShopMode: () -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -171,15 +347,15 @@ fun HomeDashboardView(
             StartShopModeButton(onStartClick = onStartShopMode)
         }
 
-        // 2. Today's Overview (Zeroed real financial baseline)
+        // 2. Real Today's Overview
         item {
             TodayOverviewSection(
-                todayCredit = "₹0.00",
-                todayPayments = "₹0.00"
+                todayCredit = todayCredit,
+                todayPayments = todayPayment
             )
         }
 
-        // 3. Quick Action Shortcuts
+        // 3. Quick Action Shortcuts with Live Counts
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -187,14 +363,14 @@ fun HomeDashboardView(
             ) {
                 ShortcutCard(
                     title = "Customer Accounts",
-                    subtitle = "Manage ledger",
+                    subtitle = "$customerCount Customer${if (customerCount != 1) "s" else ""}",
                     icon = Icons.Default.People,
                     modifier = Modifier.weight(1f),
                     onClick = onOpenKhata
                 )
                 ShortcutCard(
                     title = "Transaction History",
-                    subtitle = "View log",
+                    subtitle = "$totalRecordCount Record${if (totalRecordCount != 1) "s" else ""}",
                     icon = Icons.Default.ReceiptLong,
                     modifier = Modifier.weight(1f),
                     onClick = onOpenHistory
@@ -218,12 +394,31 @@ fun HomeDashboardView(
                     color = TextPrimary,
                     fontSize = 15.sp
                 )
+                if (recentTransactions.isNotEmpty()) {
+                    Text(
+                        text = "View all",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = BrandAccent,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.clickable { onOpenHistory() }
+                    )
+                }
             }
         }
 
-        // 5. Recent Transactions Empty State (No fabricated data)
-        item {
-            EmptyTransactionsCard()
+        // 5. Recent Transactions List or Empty State
+        if (recentTransactions.isEmpty()) {
+            item {
+                EmptyTransactionsCard()
+            }
+        } else {
+            items(recentTransactions, key = { it.transaction.id }) { item ->
+                GlobalTransactionRow(
+                    item = item,
+                    onDelete = { onDeleteTransaction(item.transaction) }
+                )
+            }
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -231,7 +426,7 @@ fun HomeDashboardView(
 }
 
 /**
- * Sleek, high-contrast primary CTA button for Shop Mode
+ * Primary CTA Button for Shop Mode
  */
 @Composable
 fun StartShopModeButton(onStartClick: () -> Unit) {
@@ -294,7 +489,7 @@ fun StartShopModeButton(onStartClick: () -> Unit) {
 }
 
 /**
- * Clean dual-card Today's Overview: Credit & Payments
+ * Clean dual-card Today's Overview
  */
 @Composable
 fun TodayOverviewSection(
@@ -402,7 +597,7 @@ fun TodayOverviewSection(
 }
 
 /**
- * Minimal shortcut card for one-handed thumb navigation
+ * Minimal shortcut card
  */
 @Composable
 fun ShortcutCard(
@@ -503,155 +698,5 @@ fun EmptyTransactionsCard() {
                 color = TextSecondary
             )
         }
-    }
-}
-
-/**
- * Khata (Customer Accounts) tab view with proper empty state
- */
-@Composable
-fun CustomerAccountsView() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Customer Accounts",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary,
-            fontSize = 18.sp
-        )
-        Text(
-            text = "Track customer credit and payments",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
-            fontSize = 12.sp
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 40.dp, horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(BorderDivider),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.People,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = "No customer accounts yet",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Customer accounts and credit balances will be listed here",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
- * History (Transaction Log) tab view with proper empty state
- */
-@Composable
-fun TransactionHistoryView() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Transaction History",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary,
-            fontSize = 18.sp
-        )
-        Text(
-            text = "Complete log of sales, credits, and payments",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
-            fontSize = 12.sp
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 40.dp, horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(BorderDivider),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ReceiptLong,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = "No transactions yet",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "All store entries will appear in this history log",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    DukaanAITheme {
-        HomeScreen()
     }
 }
