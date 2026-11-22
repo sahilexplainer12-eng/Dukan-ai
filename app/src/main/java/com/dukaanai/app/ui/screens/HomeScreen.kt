@@ -261,26 +261,30 @@ fun RenderDialogs(
     }
 
     // 2. Edit Customer Dialog
-    viewModel.editingCustomer?.let { customer ->
+    val editingCust = viewModel.editingCustomer
+    if (editingCust != null) {
         EditCustomerDialog(
-            customer = customer,
+            customer = editingCust,
             onDismiss = { viewModel.editingCustomer = null },
-            onConfirm = { name, phone -> viewModel.updateCustomer(customer.id, name, phone) }
+            onConfirm = { name, phone -> viewModel.updateCustomer(editingCust.id, name, phone) }
         )
     }
 
     // 3. Delete Customer Dialog
-    viewModel.customerToDelete?.let { customer ->
+    val deletingCust = viewModel.customerToDelete
+    if (deletingCust != null) {
         DeleteConfirmationDialog(
             title = "Delete Customer",
-            message = "Are you sure you want to delete ${customer.name}? All their transactions will be permanently deleted.",
+            message = "Are you sure you want to delete ${deletingCust.name}? All their transactions will be permanently deleted.",
             onDismiss = { viewModel.customerToDelete = null },
-            onConfirm = { viewModel.deleteCustomer(customer) }
+            onConfirm = { viewModel.deleteCustomer(deletingCust) }
         )
     }
 
     // 4. Add Transaction Dialog (Credit or Payment)
-    viewModel.transactionDialogState?.let { (customer, type) ->
+    val txnDialog = viewModel.transactionDialogState
+    if (txnDialog != null) {
+        val (customer, type) = txnDialog
         AddTransactionDialog(
             customer = customer,
             type = type,
@@ -297,12 +301,13 @@ fun RenderDialogs(
     }
 
     // 5. Delete Transaction Dialog
-    viewModel.transactionToDelete?.let { txn ->
+    val deletingTxn = viewModel.transactionToDelete
+    if (deletingTxn != null) {
         DeleteConfirmationDialog(
             title = "Delete Transaction",
-            message = "Are you sure you want to delete this ₹%.2f entry? The customer's balance will be recalculated immediately.".format(txn.amount),
+            message = "Are you sure you want to delete this ₹%.2f entry? The customer's balance will be recalculated immediately.".format(deletingTxn.amount),
             onDismiss = { viewModel.transactionToDelete = null },
-            onConfirm = { viewModel.deleteTransaction(txn) }
+            onConfirm = { viewModel.deleteTransaction(deletingTxn) }
         )
     }
 
