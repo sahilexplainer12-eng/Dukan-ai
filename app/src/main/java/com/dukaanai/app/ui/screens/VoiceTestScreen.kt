@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,6 +52,7 @@ fun VoiceTestScreen(
     val recorder = viewModel.audioRecorder
     val recordingStatus by recorder.status.collectAsState()
     val transcribeState by viewModel.speechToTextEngine.state.collectAsState()
+    val currentLanguage by viewModel.speechToTextEngine.currentLanguage.collectAsState()
 
     var hasPermission by remember {
         mutableStateOf(
@@ -92,7 +92,7 @@ fun VoiceTestScreen(
                             color = BrandPrimary
                         )
                         Text(
-                            text = "Whisper Multilingual Tiny (Offline)",
+                            text = "Hindi & Hinglish Shop Ledger",
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )
@@ -123,7 +123,7 @@ fun VoiceTestScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Safety Info Banner
             Card(
@@ -150,6 +150,35 @@ fun VoiceTestScreen(
                         lineHeight = 16.sp
                     )
                 }
+            }
+
+            // Language Selection Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = currentLanguage == "hi",
+                    onClick = { viewModel.setSttLanguage("hi") },
+                    label = {
+                        Text("Hindi (हिंदी) • Default", fontWeight = FontWeight.SemiBold)
+                    },
+                    leadingIcon = if (currentLanguage == "hi") {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+
+                FilterChip(
+                    selected = currentLanguage == "",
+                    onClick = { viewModel.setSttLanguage("") },
+                    label = {
+                        Text("Auto-Detect")
+                    },
+                    leadingIcon = if (currentLanguage == "") {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
             }
 
             // Main Recording Card
@@ -313,7 +342,7 @@ fun VoiceTestScreen(
                 )
             }
 
-            // Real Shopkeeper Test Phrases Card
+            // Official Hindi Kirana Shop Test Phrases Card
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(16.dp),
@@ -335,7 +364,7 @@ fun VoiceTestScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Test Phrases for Shop Use",
+                            text = "Test Phrases (Hindi / Hinglish)",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = BrandPrimary
@@ -343,27 +372,33 @@ fun VoiceTestScreen(
                     }
 
                     Text(
-                        text = "Speak one of these natural shop phrases while recording to test offline speech recognition:",
+                        text = "Speak one of these exact phrases into the mic to test Hindi speech recognition:",
                         fontSize = 12.sp,
                         color = Color(0xFF64748B)
                     )
 
                     TestPhraseItem(
-                        tag = "Phrase 1: Credit (Udhaar)",
-                        phrase = "Raju do kilo chawal aur ek tel le gaya, 180 rupaye udhaar.",
+                        tag = "Test 1: Detergent Sale",
+                        phrase = "रिजवान भाई दस रुपये का डिटर्जेंट ले गए हैं।",
+                        tagColor = Color(0xFF2563EB)
+                    )
+
+                    TestPhraseItem(
+                        tag = "Test 2: Udhaar / Credit",
+                        phrase = "राजू दो किलो चावल और एक तेल ले गया, एक सौ अस्सी रुपये उधार।",
                         tagColor = CreditRed
                     )
 
                     TestPhraseItem(
-                        tag = "Phrase 2: Payment (Jama)",
-                        phrase = "Munna ne pichhle khate ke paanch sau rupaye jama kiye.",
+                        tag = "Test 3: Jama / Payment",
+                        phrase = "मुन्ना ने पिछले खाते के पाँच सौ रुपये जमा किए।",
                         tagColor = PaymentGreen
                     )
 
                     TestPhraseItem(
-                        tag = "Phrase 3: Grocery Order",
-                        phrase = "Bhaiya ek kilo chini aur aadha kilo dal de dena.",
-                        tagColor = Color(0xFF6366F1)
+                        tag = "Test 4: Grocery Order",
+                        phrase = "भैया एक किलो चीनी और आधा किलो दाल दे देना।",
+                        tagColor = Color(0xFF7C3AED)
                     )
                 }
             }
@@ -403,7 +438,7 @@ private fun TranscribedResultCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Recognized Text (STT)",
+                        text = "Recognized Hindi Text",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandPrimary
@@ -419,7 +454,7 @@ private fun TranscribedResultCard(
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "Offline • $secText",
+                            text = "Hindi • $secText",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PaymentGreen
@@ -451,7 +486,7 @@ private fun TranscribedResultCard(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Loading offline Whisper model...",
+                            text = "Loading offline multilingual Whisper model...",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF64748B)
@@ -473,7 +508,7 @@ private fun TranscribedResultCard(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Transcribing offline... Please wait.",
+                            text = "Transcribing Hindi offline... Please wait.",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF64748B)
@@ -481,7 +516,7 @@ private fun TranscribedResultCard(
                     }
                 }
                 is TranscribeState.Success -> {
-                    // Transcript Text Box
+                    // Transcript Text Box (Devanagari Hindi)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -492,10 +527,10 @@ private fun TranscribedResultCard(
                     ) {
                         Text(
                             text = state.text,
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF0F172A),
-                            lineHeight = 22.sp
+                            lineHeight = 24.sp
                         )
                     }
 
@@ -595,7 +630,7 @@ private fun IdleRecordingView() {
         )
 
         Text(
-            text = "Tap 'Record Voice' and speak clearly into your phone's microphone.",
+            text = "Tap 'Record Voice' and speak clearly in Hindi into your microphone.",
             fontSize = 13.sp,
             color = Color(0xFF64748B),
             textAlign = TextAlign.Center
@@ -879,9 +914,10 @@ private fun TestPhraseItem(
         }
         Text(
             text = "\"$phrase\"",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF1E293B)
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF1E293B),
+            lineHeight = 20.sp
         )
     }
 }

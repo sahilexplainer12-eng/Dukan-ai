@@ -4,6 +4,7 @@
 *.aar
 *.zip
 app/src/main/assets/whisper-tiny/
+app/src/main/assets/sherpa-onnx-whisper-*/
 
 # Files for the ART/Dalvik VM
 *.dex

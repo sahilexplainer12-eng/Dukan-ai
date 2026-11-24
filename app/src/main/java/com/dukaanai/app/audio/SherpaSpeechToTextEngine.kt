@@ -15,13 +15,16 @@ sealed interface TranscribeState {
     data object Transcribing : TranscribeState
     data class Success(
         val text: String,
-        val timeTakenSeconds: Double
+        val timeTakenSeconds: Double,
+        val detectedLanguage: String = "hi"
     ) : TranscribeState
     data class Error(val message: String) : TranscribeState
 }
 
 interface SpeechToTextEngine {
     val state: StateFlow<TranscribeState>
+    val currentLanguage: StateFlow<String>
+    fun setTargetLanguage(languageCode: String)
     suspend fun transcribe(audioFile: File): Result<String>
     fun clear()
     fun release()
@@ -32,8 +35,20 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
     private val _state = MutableStateFlow<TranscribeState>(TranscribeState.Idle)
     override val state: StateFlow<TranscribeState> = _state.asStateFlow()
 
+    // Default to "hi" (Hindi) as requested for kirana/shop use
+    private val _currentLanguage = MutableStateFlow("hi")
+    override val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
+
     private var recognizer: OfflineRecognizer? = null
     private var isInitialized = false
+
+    override fun setTargetLanguage(languageCode: String) {
+        if (_currentLanguage.value != languageCode) {
+            _currentLanguage.value = languageCode
+            // Reset existing recognizer so the new language token is applied on next transcription
+            release()
+        }
+    }
 
     private suspend fun initializeIfNeeded(): Boolean = withContext(Dispatchers.IO) {
         if (isInitialized && recognizer != null) return@withContext true
@@ -41,44 +56,65 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
         _state.value = TranscribeState.LoadingModel
 
         try {
-            // Verify model files exist in assets
-            val assetList = try {
-                context.assets.list("whisper-tiny") ?: emptyArray()
-            } catch (e: Exception) {
-                emptyArray()
+            // Find which asset directory contains the Whisper model
+            val candidateDirs = listOf("sherpa-onnx-whisper-tiny", "whisper-tiny")
+            var selectedDir: String? = null
+            var assetFiles: Array<String> = emptyArray()
+
+            for (dir in candidateDirs) {
+                val list = try {
+                    context.assets.list(dir) ?: emptyArray()
+                } catch (_: Exception) {
+                    emptyArray()
+                }
+                if (list.contains("tiny-tokens.txt")) {
+                    selectedDir = dir
+                    assetFiles = list
+                    break
+                }
             }
 
-            val hasEncoder = assetList.contains("tiny-encoder.int8.onnx") || assetList.contains("tiny-encoder.onnx")
-            val hasDecoder = assetList.contains("tiny-decoder.int8.onnx") || assetList.contains("tiny-decoder.onnx")
-            val hasTokens = assetList.contains("tiny-tokens.txt")
-
-            if (!hasEncoder || !hasDecoder || !hasTokens) {
+            if (selectedDir == null) {
                 _state.value = TranscribeState.Error(
-                    "Whisper model files not found in app assets. Please rebuild the APK with the model packaged."
+                    "Multilingual Whisper model assets not found in app. Please ensure the APK was packaged with the offline model."
                 )
                 return@withContext false
             }
 
-            val encoderName = if (assetList.contains("tiny-encoder.int8.onnx")) {
-                "whisper-tiny/tiny-encoder.int8.onnx"
-            } else {
-                "whisper-tiny/tiny-encoder.onnx"
+            val hasEncoder = assetFiles.contains("tiny-encoder.onnx") || assetFiles.contains("tiny-encoder.int8.onnx")
+            val hasDecoder = assetFiles.contains("tiny-decoder.onnx") || assetFiles.contains("tiny-decoder.int8.onnx")
+            val hasTokens = assetFiles.contains("tiny-tokens.txt")
+
+            if (!hasEncoder || !hasDecoder || !hasTokens) {
+                _state.value = TranscribeState.Error(
+                    "Incomplete Whisper model files in assets/$selectedDir."
+                )
+                return@withContext false
             }
 
-            val decoderName = if (assetList.contains("tiny-decoder.int8.onnx")) {
-                "whisper-tiny/tiny-decoder.int8.onnx"
+            // Prefer int8 if present, otherwise use standard FP32
+            val encoderName = if (assetFiles.contains("tiny-encoder.int8.onnx")) {
+                "$selectedDir/tiny-encoder.int8.onnx"
             } else {
-                "whisper-tiny/tiny-decoder.onnx"
+                "$selectedDir/tiny-encoder.onnx"
             }
 
-            val tokensName = "whisper-tiny/tiny-tokens.txt"
+            val decoderName = if (assetFiles.contains("tiny-decoder.int8.onnx")) {
+                "$selectedDir/tiny-decoder.int8.onnx"
+            } else {
+                "$selectedDir/tiny-decoder.onnx"
+            }
 
-            // Configure Whisper multilingual offline model
+            val tokensName = "$selectedDir/tiny-tokens.txt"
+
+            // Target language: "hi" for Hindi, or "" for auto-detection
+            val langToUse = _currentLanguage.value
+
             val whisperConfig = OfflineWhisperModelConfig(
                 encoder = encoderName,
                 decoder = decoderName,
-                language = "", // Auto-detect language (handles Hindi / English code-switching)
-                task = "transcribe",
+                language = langToUse,
+                task = "transcribe", // Native transcription (preserves Devanagari Hindi text)
                 tailPaddings = 1000
             )
 
@@ -104,7 +140,7 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
             return@withContext true
         } catch (e: UnsatisfiedLinkError) {
             _state.value = TranscribeState.Error(
-                "Native library could not be loaded on this device architecture: ${e.message}"
+                "Native speech recognition library could not be loaded: ${e.message}"
             )
             return@withContext false
         } catch (e: Exception) {
@@ -134,7 +170,6 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
         val startTime = System.currentTimeMillis()
 
         try {
-            // Read 16kHz WAV waveform
             val waveData = WaveReader.readWave(audioFile.absolutePath)
             if (waveData.samples.isEmpty()) {
                 val err = "No audio waveform detected in the recording."
@@ -142,7 +177,6 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
                 return@withContext Result.failure(IllegalArgumentException(err))
             }
 
-            // Check minimum duration (~0.3 seconds)
             val duration = waveData.samples.size.toDouble() / waveData.sampleRate
             if (duration < 0.3) {
                 val err = "Recording is too short (less than 0.5s). Please speak a complete phrase."
@@ -162,13 +196,14 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
             val timeTakenSec = (System.currentTimeMillis() - startTime) / 1000.0
 
             if (transcribed.isBlank()) {
-                val notice = "No speech detected in audio. Please speak clearly into the microphone."
+                val notice = "No speech recognized. Please speak clearly into the phone microphone."
                 _state.value = TranscribeState.Error(notice)
                 Result.success("")
             } else {
                 _state.value = TranscribeState.Success(
                     text = transcribed,
-                    timeTakenSeconds = timeTakenSec
+                    timeTakenSeconds = timeTakenSec,
+                    detectedLanguage = if (result.lang.isNotBlank()) result.lang else _currentLanguage.value
                 )
                 Result.success(transcribed)
             }

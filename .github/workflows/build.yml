@@ -33,18 +33,14 @@ jobs:
       - name: Download Sherpa-ONNX Runtime and Multilingual Whisper Model
         run: |
           mkdir -p app/libs
-          mkdir -p app/src/main/assets/whisper-tiny
+          mkdir -p app/src/main/assets
           echo "Downloading Sherpa-ONNX runtime AAR..."
           curl -SL -o app/libs/sherpa-onnx.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-2.0.3.aar
-          echo "Downloading multilingual Whisper Tiny encoder (int8)..."
-          curl -SL -o app/src/main/assets/whisper-tiny/tiny-encoder.int8.onnx https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-encoder.int8.onnx
-          echo "Downloading multilingual Whisper Tiny decoder (int8)..."
-          curl -SL -o app/src/main/assets/whisper-tiny/tiny-decoder.int8.onnx https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-decoder.int8.onnx
-          echo "Downloading Whisper tokens..."
-          curl -SL -o app/src/main/assets/whisper-tiny/tiny-tokens.txt https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-tokens.txt
+          echo "Downloading official multilingual Whisper Tiny model (with Hindi support)..."
+          curl -SL https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2 | tar -xjf - -C app/src/main/assets/
           echo "Verifying downloaded files:"
           ls -lh app/libs/
-          ls -lh app/src/main/assets/whisper-tiny/
+          ls -lh app/src/main/assets/sherpa-onnx-whisper-tiny/
 
       - name: Run Tests and Build Debug APK with Gradle
         run: ./gradlew test assembleDebug --stacktrace

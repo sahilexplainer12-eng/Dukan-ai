@@ -224,6 +224,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         speechToTextEngine.clear()
     }
 
+    fun setSttLanguage(code: String) {
+        speechToTextEngine.setTargetLanguage(code)
+    }
+
     override fun onCleared() {
         super.onCleared()
         audioRecorder.clear()
