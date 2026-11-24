@@ -2,6 +2,7 @@ package com.dukaanai.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -23,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.dukaanai.app.audio.RecordingStatus
+import com.dukaanai.app.audio.TranscribeState
 import com.dukaanai.app.ui.theme.BrandPrimary
 import com.dukaanai.app.ui.theme.CreditRed
 import com.dukaanai.app.ui.theme.PaymentGreen
@@ -45,8 +49,10 @@ fun VoiceTestScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val recorder = viewModel.audioRecorder
     val recordingStatus by recorder.status.collectAsState()
+    val transcribeState by viewModel.speechToTextEngine.state.collectAsState()
 
     var hasPermission by remember {
         mutableStateOf(
@@ -62,7 +68,15 @@ fun VoiceTestScreen(
     ) { granted ->
         hasPermission = granted
         if (granted) {
+            viewModel.clearVoiceTest()
             recorder.startRecording()
+        }
+    }
+
+    // Automatically trigger offline transcription when recording finishes
+    LaunchedEffect(recordingStatus) {
+        if (recordingStatus is RecordingStatus.Recorded) {
+            viewModel.transcribeCurrentAudio()
         }
     }
 
@@ -72,13 +86,13 @@ fun VoiceTestScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Voice Recording Test",
+                            text = "Offline Voice Recognition",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = BrandPrimary
                         )
                         Text(
-                            text = "Microphone & Audio Pipeline",
+                            text = "Whisper Multilingual Tiny (Offline)",
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )
@@ -86,7 +100,7 @@ fun VoiceTestScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        recorder.clear()
+                        viewModel.clearVoiceTest()
                         viewModel.navigateTo(AppScreen.Home)
                     }) {
                         Icon(
@@ -130,7 +144,7 @@ fun VoiceTestScreen(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Test Mode Active: No transactions will be created or saved. Audio is stored in temporary cache only and deleted on reset.",
+                        text = "100% Offline Mode: Audio is transcribed locally on your device without internet or cloud APIs. No transactions are saved.",
                         fontSize = 12.sp,
                         color = Color(0xFF1E40AF),
                         lineHeight = 16.sp
@@ -182,7 +196,7 @@ fun VoiceTestScreen(
                         }
                     }
 
-                    // Action Buttons
+                    // Action Buttons (Record / Stop / Clear / Try Again)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -204,7 +218,7 @@ fun VoiceTestScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Stop Recording",
+                                        text = "Stop & Transcribe",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -212,7 +226,7 @@ fun VoiceTestScreen(
                             }
                             is RecordingStatus.Recorded -> {
                                 OutlinedButton(
-                                    onClick = { recorder.clear() },
+                                    onClick = { viewModel.clearVoiceTest() },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(50.dp),
@@ -224,11 +238,12 @@ fun VoiceTestScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Clear Audio")
+                                    Text("Clear")
                                 }
 
                                 Button(
                                     onClick = {
+                                        viewModel.clearVoiceTest()
                                         if (hasPermission) {
                                             recorder.startRecording()
                                         } else {
@@ -247,12 +262,13 @@ fun VoiceTestScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Record Again")
+                                    Text("Try Again")
                                 }
                             }
                             else -> {
                                 Button(
                                     onClick = {
+                                        viewModel.clearVoiceTest()
                                         if (hasPermission) {
                                             recorder.startRecording()
                                         } else {
@@ -281,6 +297,20 @@ fun VoiceTestScreen(
                         }
                     }
                 }
+            }
+
+            // Transcribed Text Result Section
+            if (recordingStatus is RecordingStatus.Recorded) {
+                TranscribedResultCard(
+                    state = transcribeState,
+                    onCopyText = { text ->
+                        clipboardManager.setText(AnnotatedString(text))
+                        Toast.makeText(context, "Copied recognized text to clipboard", Toast.LENGTH_SHORT).show()
+                    },
+                    onRetryTranscription = {
+                        viewModel.transcribeCurrentAudio()
+                    }
+                )
             }
 
             // Real Shopkeeper Test Phrases Card
@@ -313,55 +343,222 @@ fun VoiceTestScreen(
                     }
 
                     Text(
-                        text = "Speak one of these natural shop phrases while recording to test audio clarity:",
+                        text = "Speak one of these natural shop phrases while recording to test offline speech recognition:",
                         fontSize = 12.sp,
                         color = Color(0xFF64748B)
                     )
 
                     TestPhraseItem(
-                        tag = "Credit (Udhaar)",
+                        tag = "Phrase 1: Credit (Udhaar)",
                         phrase = "Raju do kilo chawal aur ek tel le gaya, 180 rupaye udhaar.",
                         tagColor = CreditRed
                     )
 
                     TestPhraseItem(
-                        tag = "Payment (Jama)",
+                        tag = "Phrase 2: Payment (Jama)",
                         phrase = "Munna ne pichhle khate ke paanch sau rupaye jama kiye.",
                         tagColor = PaymentGreen
                     )
 
                     TestPhraseItem(
-                        tag = "Item Inquiry",
+                        tag = "Phrase 3: Grocery Order",
                         phrase = "Bhaiya ek kilo chini aur aadha kilo dal de dena.",
                         tagColor = Color(0xFF6366F1)
                     )
                 }
             }
+        }
+    }
+}
 
-            // Audio Specs Details Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+@Composable
+private fun TranscribedResultCard(
+    state: TranscribeState,
+    onCopyText: (String) -> Unit,
+    onRetryTranscription: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Audio Pipeline Specifications",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF334155)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Subtitles,
+                        contentDescription = null,
+                        tint = BrandPrimary,
+                        modifier = Modifier.size(20.dp)
                     )
-                    SpecRow(label = "Format", value = "WAV (RIFF Header)")
-                    SpecRow(label = "Sampling Rate", value = "16,000 Hz")
-                    SpecRow(label = "Channels", value = "1 (Mono)")
-                    SpecRow(label = "Bit Depth", value = "16-bit Linear PCM")
-                    SpecRow(label = "Max Duration", value = "30 Seconds Auto-Stop")
-                    SpecRow(label = "Storage", value = "Temporary Cache (Deleted on reset)")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Recognized Text (STT)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandPrimary
+                    )
+                }
+
+                if (state is TranscribeState.Success) {
+                    val secText = String.format(Locale.US, "%.1fs", state.timeTakenSeconds)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(PaymentGreen.copy(alpha = 0.1f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Offline • $secText",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PaymentGreen
+                        )
+                    }
+                }
+            }
+
+            when (state) {
+                is TranscribeState.Idle -> {
+                    Text(
+                        text = "Waiting for transcription to start...",
+                        fontSize = 13.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+                is TranscribeState.LoadingModel -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = BrandPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Loading offline Whisper model...",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                is TranscribeState.Transcribing -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = BrandPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Transcribing offline... Please wait.",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                is TranscribeState.Success -> {
+                    // Transcript Text Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
+                            .padding(14.dp)
+                    ) {
+                        Text(
+                            text = state.text,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A),
+                            lineHeight = 22.sp
+                        )
+                    }
+
+                    // Copy Button
+                    OutlinedButton(
+                        onClick = { onCopyText(state.text) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = BrandPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Copy Recognized Text",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = BrandPrimary
+                        )
+                    }
+                }
+                is TranscribeState.Error -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFFEE2E2))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = CreditRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Transcription Issue",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CreditRed
+                            )
+                        }
+                        Text(
+                            text = state.message,
+                            fontSize = 12.sp,
+                            color = Color(0xFF991B1B),
+                            lineHeight = 16.sp
+                        )
+                        TextButton(
+                            onClick = onRetryTranscription,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("Retry Transcription", color = CreditRed, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
@@ -522,7 +719,7 @@ private fun RecordedAudioView(
         }
 
         Text(
-            text = "Recording Complete",
+            text = "Audio Captured",
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             color = BrandPrimary
@@ -686,16 +883,5 @@ private fun TestPhraseItem(
             fontWeight = FontWeight.Medium,
             color = Color(0xFF1E293B)
         )
-    }
-}
-
-@Composable
-private fun SpecRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(text = label, fontSize = 11.sp, color = Color(0xFF64748B))
-        Text(text = value, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF334155))
     }
 }

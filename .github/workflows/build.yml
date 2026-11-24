@@ -30,6 +30,22 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
+      - name: Download Sherpa-ONNX Runtime and Multilingual Whisper Model
+        run: |
+          mkdir -p app/libs
+          mkdir -p app/src/main/assets/whisper-tiny
+          echo "Downloading Sherpa-ONNX runtime AAR..."
+          curl -SL -o app/libs/sherpa-onnx.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-2.0.3.aar
+          echo "Downloading multilingual Whisper Tiny encoder (int8)..."
+          curl -SL -o app/src/main/assets/whisper-tiny/tiny-encoder.int8.onnx https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-encoder.int8.onnx
+          echo "Downloading multilingual Whisper Tiny decoder (int8)..."
+          curl -SL -o app/src/main/assets/whisper-tiny/tiny-decoder.int8.onnx https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-decoder.int8.onnx
+          echo "Downloading Whisper tokens..."
+          curl -SL -o app/src/main/assets/whisper-tiny/tiny-tokens.txt https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-tokens.txt
+          echo "Verifying downloaded files:"
+          ls -lh app/libs/
+          ls -lh app/src/main/assets/whisper-tiny/
+
       - name: Run Tests and Build Debug APK with Gradle
         run: ./gradlew test assembleDebug --stacktrace
 

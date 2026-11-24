@@ -43,6 +43,9 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
     }
+    androidResources {
+        noCompress += listOf("onnx", "bin")
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -51,6 +54,9 @@ android {
 }
 
 dependencies {
+    // Local offline STT libraries (.aar)
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
+
     // AndroidX & Lifecycle
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")

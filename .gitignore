@@ -3,6 +3,7 @@
 *.aab
 *.aar
 *.zip
+app/src/main/assets/whisper-tiny/
 
 # Files for the ART/Dalvik VM
 *.dex

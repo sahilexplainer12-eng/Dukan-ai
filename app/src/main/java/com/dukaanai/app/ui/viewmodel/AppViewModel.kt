@@ -40,6 +40,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // Offline audio recorder for voice ledger
     val audioRecorder = com.dukaanai.app.audio.WavAudioRecorder(application)
 
+    // Offline speech-to-text engine (Whisper Multilingual Tiny)
+    val speechToTextEngine: com.dukaanai.app.audio.SpeechToTextEngine =
+        com.dukaanai.app.audio.SherpaSpeechToTextEngine(application)
+
     // Current navigation destination
     private val _currentScreen = MutableStateFlow<AppScreen>(AppScreen.Loading)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
@@ -208,8 +212,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return repository.getCustomerById(customerId)
     }
 
+    fun transcribeCurrentAudio() {
+        val file = audioRecorder.tempAudioFile
+        viewModelScope.launch {
+            speechToTextEngine.transcribe(file)
+        }
+    }
+
+    fun clearVoiceTest() {
+        audioRecorder.clear()
+        speechToTextEngine.clear()
+    }
+
     override fun onCleared() {
         super.onCleared()
         audioRecorder.clear()
+        speechToTextEngine.release()
     }
 }
