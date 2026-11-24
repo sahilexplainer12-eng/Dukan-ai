@@ -26,6 +26,7 @@ sealed interface AppScreen {
     data object History : AppScreen
     data class CustomerDetail(val customerId: Long) : AppScreen
     data object StoreSettings : AppScreen
+    data object VoiceTest : AppScreen
 }
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -35,6 +36,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         customerDao = database.customerDao(),
         transactionDao = database.transactionDao()
     )
+
+    // Offline audio recorder for voice ledger
+    val audioRecorder = com.dukaanai.app.audio.WavAudioRecorder(application)
 
     // Current navigation destination
     private val _currentScreen = MutableStateFlow<AppScreen>(AppScreen.Loading)
@@ -202,5 +206,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getCustomer(customerId: Long): Flow<Customer?> {
         return repository.getCustomerById(customerId)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioRecorder.clear()
     }
 }

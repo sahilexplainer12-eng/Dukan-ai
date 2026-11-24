@@ -68,6 +68,12 @@ fun HomeScreen(viewModel: AppViewModel) {
         return
     }
 
+    // Voice Test Screen View (Offline Audio Pipeline)
+    if (currentScreen is AppScreen.VoiceTest) {
+        VoiceTestScreen(viewModel = viewModel)
+        return
+    }
+
     // Customer Detail Screen View
     if (currentScreen is AppScreen.CustomerDetail) {
         val customerId = (currentScreen as AppScreen.CustomerDetail).customerId
@@ -222,7 +228,7 @@ fun HomeScreen(viewModel: AppViewModel) {
                     onOpenKhata = { viewModel.navigateTo(AppScreen.Khata) },
                     onOpenHistory = { viewModel.navigateTo(AppScreen.History) },
                     onStartShopMode = {
-                        // Reserved for upcoming Shop Mode feature
+                        viewModel.navigateTo(AppScreen.VoiceTest)
                     },
                     onDeleteTransaction = { viewModel.transactionToDelete = it }
                 )
