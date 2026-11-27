@@ -56,8 +56,8 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
         _state.value = TranscribeState.LoadingModel
 
         try {
-            // Find which asset directory contains the Whisper model
-            val candidateDirs = listOf("sherpa-onnx-whisper-tiny", "whisper-tiny")
+            // Find which asset directory contains a Whisper model
+            val candidateDirs = listOf("sherpa-onnx-whisper-base", "sherpa-onnx-whisper-tiny", "whisper-base", "whisper-tiny")
             var selectedDir: String? = null
             var assetFiles: Array<String> = emptyArray()
 
@@ -67,7 +67,7 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
                 } catch (_: Exception) {
                     emptyArray()
                 }
-                if (list.contains("tiny-tokens.txt")) {
+                if (list.any { it.endsWith("-tokens.txt") || it == "tokens.txt" }) {
                     selectedDir = dir
                     assetFiles = list
                     break
@@ -81,31 +81,24 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
                 return@withContext false
             }
 
-            val hasEncoder = assetFiles.contains("tiny-encoder.onnx") || assetFiles.contains("tiny-encoder.int8.onnx")
-            val hasDecoder = assetFiles.contains("tiny-decoder.onnx") || assetFiles.contains("tiny-decoder.int8.onnx")
-            val hasTokens = assetFiles.contains("tiny-tokens.txt")
+            val encoderFile = assetFiles.firstOrNull { it.contains("encoder") && it.contains("int8") && it.endsWith(".onnx") }
+                ?: assetFiles.firstOrNull { it.contains("encoder") && it.endsWith(".onnx") }
 
-            if (!hasEncoder || !hasDecoder || !hasTokens) {
+            val decoderFile = assetFiles.firstOrNull { it.contains("decoder") && it.contains("int8") && it.endsWith(".onnx") }
+                ?: assetFiles.firstOrNull { it.contains("decoder") && it.endsWith(".onnx") }
+
+            val tokensFile = assetFiles.firstOrNull { it.endsWith("-tokens.txt") || it == "tokens.txt" }
+
+            if (encoderFile == null || decoderFile == null || tokensFile == null) {
                 _state.value = TranscribeState.Error(
-                    "Incomplete Whisper model files in assets/$selectedDir."
+                    "Incomplete Whisper model files in assets/$selectedDir (encoder: $encoderFile, decoder: $decoderFile, tokens: $tokensFile)."
                 )
                 return@withContext false
             }
 
-            // Prefer int8 if present, otherwise use standard FP32
-            val encoderName = if (assetFiles.contains("tiny-encoder.int8.onnx")) {
-                "$selectedDir/tiny-encoder.int8.onnx"
-            } else {
-                "$selectedDir/tiny-encoder.onnx"
-            }
-
-            val decoderName = if (assetFiles.contains("tiny-decoder.int8.onnx")) {
-                "$selectedDir/tiny-decoder.int8.onnx"
-            } else {
-                "$selectedDir/tiny-decoder.onnx"
-            }
-
-            val tokensName = "$selectedDir/tiny-tokens.txt"
+            val encoderName = "$selectedDir/$encoderFile"
+            val decoderName = "$selectedDir/$decoderFile"
+            val tokensName = "$selectedDir/$tokensFile"
 
             // Target language: "hi" for Hindi, or "" for auto-detection
             val langToUse = _currentLanguage.value
