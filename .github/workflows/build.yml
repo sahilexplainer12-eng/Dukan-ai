@@ -5,7 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -38,8 +41,11 @@ jobs:
           curl -SL -o app/libs/sherpa-onnx.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-2.0.3.aar
           echo "Downloading official multilingual Whisper Base model (with Hindi Devanagari support)..."
           curl -SL https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.tar.bz2 | tar -xjf - -C app/src/main/assets/
-          echo "Verifying downloaded files:"
-          ls -lh app/libs/
+          echo "Keeping only INT8 quantized mobile models (removing duplicate 430MB FP32 models and test wavs)..."
+          rm -f app/src/main/assets/sherpa-onnx-whisper-base/base-encoder.onnx
+          rm -f app/src/main/assets/sherpa-onnx-whisper-base/base-decoder.onnx
+          rm -rf app/src/main/assets/sherpa-onnx-whisper-base/test_wavs
+          echo "Verifying remaining model files in assets:"
           ls -lh app/src/main/assets/sherpa-onnx-whisper-base/
 
       - name: Run Tests and Build Debug APK with Gradle
@@ -57,3 +63,10 @@ jobs:
           name: DukaanAI-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+      - name: Update GitHub Release Asset
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v1.4.0-whisper-base app/build/outputs/apk/debug/app-debug.apk --repo ${{ github.repository }} --clobber
