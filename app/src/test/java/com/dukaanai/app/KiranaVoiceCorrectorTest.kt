@@ -2,7 +2,6 @@ package com.dukaanai.app
 
 import com.dukaanai.app.audio.KiranaVoiceCorrector
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KiranaVoiceCorrectorTest {
