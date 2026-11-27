@@ -534,6 +534,41 @@ private fun TranscribedResultCard(
                         )
                     }
 
+                    if (state.rawText != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF0FDF4))
+                                .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(8.dp))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = PaymentGreen,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Kirana Domain Auto-Corrected",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PaymentGreen
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Raw speech: \"${state.rawText}\"",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+
                     // Copy Button
                     OutlinedButton(
                         onClick = { onCopyText(state.text) },

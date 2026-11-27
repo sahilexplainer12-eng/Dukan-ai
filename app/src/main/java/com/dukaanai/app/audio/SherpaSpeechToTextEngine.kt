@@ -15,6 +15,7 @@ sealed interface TranscribeState {
     data object Transcribing : TranscribeState
     data class Success(
         val text: String,
+        val rawText: String? = null,
         val timeTakenSeconds: Double,
         val detectedLanguage: String = "hi"
     ) : TranscribeState
@@ -185,7 +186,9 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
             val result = currentRecognizer.getResult(stream)
             stream.release()
 
-            val transcribed = result.text.trim()
+            val rawTranscribed = result.text.trim()
+            val correction = KiranaVoiceCorrector.process(rawTranscribed)
+            val transcribed = correction.corrected
             val timeTakenSec = (System.currentTimeMillis() - startTime) / 1000.0
 
             if (transcribed.isBlank()) {
@@ -195,6 +198,7 @@ class SherpaSpeechToTextEngine(private val context: Context) : SpeechToTextEngin
             } else {
                 _state.value = TranscribeState.Success(
                     text = transcribed,
+                    rawText = if (correction.isModified) rawTranscribed else null,
                     timeTakenSeconds = timeTakenSec,
                     detectedLanguage = if (result.lang.isNotBlank()) result.lang else _currentLanguage.value
                 )
